@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6x6 Sudoku with Subgrid Borders</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+        }
+        td {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-family: "More Sugar", sans-serif;
+            font-size: 16px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="generateAndExportSudoku()">Generate & Export Sudoku</button>
+    <div id="sudoku-board"></div>
+
+    <script>
+        function generateAndExportSudoku() {
+            const sudoku = createValidSudoku();
+            exportToSVG(sudoku);
+        }
+
+        function createValidSudoku() {
+            const size = 6;
+            const subGridRows = 2;
+            const subGridCols = 3;
+            let grid = Array.from({ length: size }, () => Array(size).fill(0));
+
+            function isValid(grid, row, col, num) {
+                for (let x = 0; x < size; x++) {
+                    if (grid[row][x] === num || grid[x][col] === num) return false;
+                }
+                let startRow = Math.floor(row / subGridRows) * subGridRows;
+                let startCol = Math.floor(col / subGridCols) * subGridCols;
+                for (let i = startRow; i < startRow + subGridRows; i++) {
+                    for (let j = startCol; j < startCol + subGridCols; j++) {
+                        if (grid[i][j] === num) return false;
+                    }
+                }
+                return true;
+            }
+
+            function fillGrid(grid) {
+                for (let row = 0; row < size; row++) {
+                    for (let col = 0; col < size; col++) {
+                        if (grid[row][col] === 0) {
+                            let nums = Array.from({ length: size }, (_, i) => i + 1);
+                            shuffle(nums);
+                            for (let num of nums) {
+                                if (isValid(grid, row, col, num)) {
+                                    grid[row][col] = num;
+                                    if (fillGrid(grid)) return true;
+                                    grid[row][col] = 0;
+                                }
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            fillGrid(grid);
+            return grid;
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        function exportToSVG(sudoku) {
+            const svgNamespace = "http://www.w3.org/2000/svg";
+            const size = 6;
+            const cellSize = 50;
+            let svg = document.createElementNS(svgNamespace, 'svg');
+            svg.setAttribute('width', size * cellSize);
+            svg.setAttribute('height', size * cellSize);
+
+            let startX = 0;
+            let startY = 0;
+
+            // Create grid and subgrid borders
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    let x = startX + col * cellSize;
+                    let y = startY + row * cellSize;
+
+                    // Draw the grid cells
+                    let rect = document.createElementNS(svgNamespace, 'rect');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', cellSize);
+                    rect.setAttribute('height', cellSize);
+                    rect.setAttribute('stroke', '#ccc');
+                    rect.setAttribute('fill', 'none');
+                    svg.appendChild(rect);
+
+                    // Draw subgrid borders (horizontal and vertical)
+                    if (col === 2 || col === 5) {
+                        let vertLine = document.createElementNS(svgNamespace, 'line');
+                        vertLine.setAttribute('x1', x + cellSize);
+                        vertLine.setAttribute('y1', 0);
+                        vertLine.setAttribute('x2', x + cellSize);
+                        vertLine.setAttribute('y2', size * cellSize);
+                        vertLine.setAttribute('stroke', '#000');
+                        vertLine.setAttribute('stroke-width', '3');
+                        svg.appendChild(vertLine);
+                    }
+                    if (row === 1 || row === 3) {
+                        let horLine = document.createElementNS(svgNamespace, 'line');
+                        horLine.setAttribute('x1', 0);
+                        horLine.setAttribute('y1', y + cellSize);
+                        horLine.setAttribute('x2', size * cellSize);
+                        horLine.setAttribute('y2', y + cellSize);
+                        horLine.setAttribute('stroke', '#000');
+                        horLine.setAttribute('stroke-width', '3');
+                        svg.appendChild(horLine);
+                    }
+                }
+            }
+
+            // Create outer border
+            let outerBorder = document.createElementNS(svgNamespace, 'rect');
+            outerBorder.setAttribute('x', 0);
+            outerBorder.setAttribute('y', 0);
+            outerBorder.setAttribute('width', size * cellSize);
+            outerBorder.setAttribute('height', size * cellSize);
+            outerBorder.setAttribute('stroke', 'black');
+            outerBorder.setAttribute('stroke-width', '4');
+            outerBorder.setAttribute('fill', 'none');
+            svg.appendChild(outerBorder);
+
+            // Draw numbers with random color
+            let blackCells = getRandomBlackCells(size);
+            for (let row = 0; row < size; row++) {
+                for (let col = 0; col < size; col++) {
+                    let value = sudoku[row][col];
+                    if (value !== 0) {
+                        let text = document.createElementNS(svgNamespace, 'text');
+                        // Center digits horizontally and vertically
+                        text.setAttribute('x', startX + col * cellSize + cellSize / 2);
+                        text.setAttribute('y', startY + row * cellSize + cellSize / 2);
+                        text.setAttribute('font-family', 'More Sugar');
+                        text.setAttribute('font-size', '16');
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('dominant-baseline', 'middle');
+                        text.setAttribute('fill', blackCells.includes(`${row}-${col}`) ? 'black' : 'red');
+                        text.textContent = value;
+                        svg.appendChild(text);
+                    }
+                }
+            }
+
+            // Add SVG to the DOM
+            document.getElementById('sudoku-board').innerHTML = '';
+            document.getElementById('sudoku-board').appendChild(svg);
+
+            // Export SVG
+            let svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+            let svgUrl = URL.createObjectURL(svgBlob);
+            let downloadLink = document.createElement('a');
+            downloadLink.href = svgUrl;
+            downloadLink.download = '6x6_sudoku_with_subgrid.svg';
+            downloadLink.click();
+            URL.revokeObjectURL(svgUrl);
+        }
+
+        function getRandomBlackCells(size) {
+            let blackCells = new Set();
+            while (blackCells.size < 12) {
+                let row = Math.floor(Math.random() * size);
+                let col = Math.floor(Math.random() * size);
+                blackCells.add(`${row}-${col}`);
+            }
+            return Array.from(blackCells);
+        }
+    </script>
+</body>
+</html>
